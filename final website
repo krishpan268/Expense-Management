@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clarity - Expense Reimbursement</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#4f46e5', // Indigo-600 (Shiny Blue)
+                        'secondary': '#3730a3', // Indigo-800
+                        'accent': '#6366f1', // Indigo-500
+                        'light-gray': '#d1d5db', // gray-300
+                        'dark-gray': '#9ca3af', // gray-400
+                        'bg-light': '#2d2a4c', // Custom Dark Purple (Card)
+                        'bg-dark': '#1c163a', // Custom Darker Purple (BG)
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    keyframes: {
+                        spinner: {
+                            'to': { transform: 'rotate(360deg)' },
+                        },
+                        'typing-bounce': {
+                            '0%, 60%, 100%': { transform: 'translateY(0)' },
+                            '30%': { transform: 'translateY(-4px)' },
+                        },
+                        'card-enter': {
+                            'from': { opacity: 0, transform: 'scale(0.95) translateY(20px)' },
+                            'to': { opacity: 1, transform: 'scale(1) translateY(0)' },
+                        }
+                    },
+                    animation: {
+                        spinner: 'spinner 1s linear infinite',
+                        'card-enter': 'card-enter 0.6s ease-out forwards',
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1c163a; /* bg-dark */
+        }
+        .soft-shadow {
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .status-pill {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-approved { background-color: rgba(34, 197, 94, 0.2); color: #4ade80; }
+        .status-pending { background-color: rgba(245, 158, 11, 0.2); color: #facc15; }
+        .status-rejected { background-color: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+        .page { display: none; }
+        .page.active { display: block; }
+        
+        .draggable { cursor: grab; }
+        .dropzone { border: 2px dashed #3730a3; }
+        .dropzone.drag-over { background-color: #334155; border-color: #6366f1; }
+
+        .modal { transition: opacity 0.3s ease; }
+        .modal-content { transition: transform 0.3s ease, opacity 0.3s ease; }
+        
+        .ai-typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #9ca3af;
+            animation: typing-bounce 1s infinite;
+        }
+        .ai-typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .ai-typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+        .form-error {
+            color: #f87171;
+            font-size: 0.875rem;
+            height: 1.25rem;
+            transition: all 0.2s ease-in-out;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Scroll Animation */
+        .scroll-animate {
+            opacity: 0;
+            transform: translateY(30px) scale(0.98);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        .scroll-animate.is-visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+        
+        /* Login Page Glow */
+        .bg-glow::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(79, 70, 229, 0.2) 0%, rgba(79, 70, 229, 0) 70%);
+            z-index: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="antialiased text-light-gray">
+
+    <div id="loginPage" class="page active relative overflow-hidden bg-glow">
+        <div class="min-h-screen flex items-center justify-center bg-bg-dark p-4 relative z-10">
+            <div class="w-full max-w-md animate-card-enter">
+                <div class="bg-bg-light/80 backdrop-blur-sm rounded-xl soft-shadow p-8 border border-indigo-500/20">
+                    <div class="text-center mb-8">
+                        <i class="fas fa-file-invoice-dollar text-primary text-4xl mb-3"></i>
+                        <h1 class="text-3xl font-bold text-white">Clarity<span class="text-primary">Expense</span></h1>
+                        <p class="text-dark-gray mt-1">Streamline your reimbursements.</p>
+                    </div>
+                    <form id="loginForm">
+                        <div class="mb-4">
+                            <label for="login-email" class="block text-sm font-medium text-dark-gray mb-1">Email Address</label>
+                            <input type="email" id="login-email" value="admin@clarity.com" class="w-full px-4 py-2 bg-bg-dark/70 border border-indigo-500/30 rounded-lg focus:ring-accent focus:border-accent transition" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="login-password" class="block text-sm font-medium text-dark-gray mb-1">Password</label>
+                            <input type="password" id="login-password" value="password" class="w-full px-4 py-2 bg-bg-dark/70 border border-indigo-500/30 rounded-lg focus:ring-accent focus:border-accent transition" required>
+                        </div>
+                        <div class="form-error mb-4" id="login-error"></div>
+                        <button type="submit" class="w-full bg-gradient-to-b from-primary to-secondary text-white font-bold py-3 px-4 rounded-lg shadow-[0_4px_15px_-3px_rgba(79,70,229,0.5)] hover:shadow-[0_7px_20px_-3px_rgba(79,70,229,0.6)] hover:from-accent hover:to-primary hover:-translate-y-px transition-all duration-200">Login</button>
+                        <p class="text-center text-sm text-dark-gray mt-6">Don't have an account? <a href="#" id="show-signup-modal" class="font-medium text-primary hover:underline">Sign Up</a></p>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="appContainer" class="page">
+        <div class="flex h-screen bg-bg-dark">
+            <aside class="w-64 bg-bg-light soft-shadow flex-shrink-0 flex-col hidden md:flex">
+                <div class="h-16 flex items-center justify-center border-b border-indigo-900/50">
+                    <i class="fas fa-file-invoice-dollar text-primary text-2xl"></i>
+                    <span class="ml-3 text-xl font-bold text-white">Clarity<span class="text-primary">Expense</span></span>
+                </div>
+                <nav id="sidebarNav" class="flex-1 px-4 py-6 space-y-2"></nav>
+            </aside>
+
+            <div class="flex-1 flex flex-col overflow-hidden">
+                <header class="h-16 bg-bg-light soft-shadow flex items-center justify-between px-6">
+                    <div>
+                        <span class="font-semibold">Role:</span>
+                        <span id="userRoleDisplay" class="ml-2 capitalize px-2 py-1 text-sm font-medium rounded-md bg-primary/20 text-primary"></span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <i class="fas fa-bell text-dark-gray hover:text-primary cursor-pointer"></i>
+                        <img src="https://placehold.co/40x40/4f46e5/FFFFFF?text=U" class="w-10 h-10 rounded-full" alt="User Avatar">
+                        <button id="logoutBtn" class="text-dark-gray hover:text-primary"><i class="fas fa-right-from-bracket"></i> Logout</button>
+                    </div>
+                </header>
+                
+                <main id="mainContent" class="flex-1 overflow-x-hidden overflow-y-auto bg-bg-dark p-6"></main>
+            </div>
+        </div>
+        <button id="help-fab" class="hidden fixed bottom-6 right-6 bg-primary h-14 w-14 rounded-full items-center justify-center text-white text-2xl soft-shadow hover:bg-secondary transition-transform hover:scale-110 z-40">
+            <i class="fas fa-question"></i>
+        </button>
+    </div>
+    
+    <div id="modalContainer" class="modal fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex justify-center items-center z-50 hidden opacity-0">
+        <div class="modal-content bg-bg-light rounded-xl soft-shadow w-full max-w-lg m-4 border border-indigo-500/30 transform scale-95 opacity-0">
+             </div>
+    </div>
+    
+    <template id="employee-nav">
+        <a href="#my-expenses" class="nav-link flex items-center px-4 py-2 text-light-gray rounded-lg hover:bg-indigo-900/40 hover:text-primary">
+            <i class="fas fa-receipt w-6"></i><span class="ml-3">My Expenses</span>
+        </a>
+    </template>
+    
+    <template id="manager-nav">
+        <a href="#pending-approvals" class="nav-link flex items-center px-4 py-2 text-light-gray rounded-lg hover:bg-indigo-900/40 hover:text-primary">
+            <i class="fas fa-hourglass-half w-6"></i><span class="ml-3">Pending Approvals</span>
+        </a>
+    </template>
+    
+    <template id="history-nav">
+        <a href="#history" class="nav-link flex items-center px-4 py-2 text-light-gray rounded-lg hover:bg-indigo-900/40 hover:text-primary">
+            <i class="fas fa-archive w-6"></i><span class="ml-3">History</span>
+        </a>
+    </template>
+
+    <template id="admin-nav">
+        <a href="#user-management" class="nav-link flex items-center px-4 py-2 text-light-gray rounded-lg hover:bg-indigo-900/40 hover:text-primary">
+            <i class="fas fa-users w-6"></i><span class="ml-3">User Management</span>
+        </a>
+        <a href="#approval-rules" class="nav-link flex items-center px-4 py-2 text-light-gray rounded-lg hover:bg-indigo-900/40 hover:text-primary">
+            <i class="fas fa-sitemap w-6"></i><span class="ml-3">Approval Rules</span>
+        </a>
+    </template>
+    
+    <template id="my-expenses-page">
+        <div class="space-y-6">
+            <div class="scroll-animate flex flex-wrap gap-4 justify-between items-center">
+                <h1 class="text-3xl font-bold text-white">My Expenses</h1>
+                <div class="flex gap-4">
+                    <button class="scan-receipt-btn bg-slate-600 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 border border-slate-500 hover:bg-slate-500 transition-all duration-200"><i class="fas fa-camera-retro"></i><span>Scan Receipt</span></button>
+                    <button class="submit-expense-btn bg-gradient-to-b from-primary to-secondary text-white font-bold py-2 px-4 rounded-lg shadow-[0_4px_15px_-3px_rgba(79,70,229,0.5)] hover:shadow-[0_7px_20px_-3px_rgba(79,70,229,0.6)] hover:from-accent hover:to-primary hover:-translate-y-px transition-all duration-200"><i class="fas fa-plus"></i><span>Submit Manually</span></button>
+                </div>
+            </div>
+            <div class="scroll-animate bg-bg-light p-6 rounded-xl soft-shadow">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b border-indigo-900/50">
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase">Date</th>
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase">Description</th>
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase text-right">Amount</th>
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase text-center">Status</th>
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="my-expenses-table-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+
+    <template id="expense-history-modal">
+        <div class="flex items-center justify-between p-5 border-b border-indigo-900/50">
+            <h3 class="text-2xl font-bold text-white">Expense History</h3>
+            <button class="close-modal-btn text-gray-500 hover:text-white transition-colors duration-200"><i class="fas fa-times text-2xl"></i></button>
+        </div>
+        <div class="p-6">
+            <p class="mb-4"><strong id="history-description"></strong></p>
+            <ol id="history-timeline" class="relative border-l border-indigo-900/50 ml-2">
+                </ol>
+        </div>
+    </template>
+    
+    <template id="ocr-scan-modal">
+         <div class="flex items-center justify-between p-5 border-b border-indigo-900/50">
+            <h3 class="text-2xl font-bold text-white">Scan Receipt</h3>
+            <button class="close-modal-btn text-gray-500 hover:text-white transition-colors duration-200"><i class="fas fa-times text-2xl"></i></button>
+        </div>
+        <div id="ocr-content" class="p-6 text-center">
+            <div id="ocr-upload-view">
+                <label id="ocrScanner" for="receiptUpload" class="cursor-pointer block bg-bg-dark border-2 border-dashed border-indigo-900/50 rounded-xl p-12 hover:border-primary transition-colors">
+                    <i class="fas fa-upload text-5xl text-gray-500 mb-4"></i>
+                    <p class="text-white font-semibold">Click to upload receipt</p>
+                    <p class="text-sm text-dark-gray">PNG, JPG, or PDF</p>
+                </label>
+                <input type="file" id="receiptUpload" class="hidden" accept="image/png, image/jpeg, application/pdf">
+            </div>
+            <div id="ocr-scanning-view" class="hidden">
+                 <div class="w-16 h-16 border-4 border-dashed rounded-full animate-spinner border-primary mx-auto"></div>
+                 <p class="text-white font-semibold mt-4 text-lg">Scanning receipt...</p>
+                 <p id="ocr-status-text" class="text-dark-gray">Extracting details, please wait.</p>
+            </div>
+        </div>
+    </template>
+
+    <template id="expense-submission-form">
+        <div class="flex items-center justify-between p-5 border-b border-indigo-900/50">
+            <h3 class="text-2xl font-bold text-white">New Expense Request</h3>
+            <button class="close-modal-btn text-gray-500 hover:text-white transition-colors duration-200"><i class="fas fa-times text-2xl"></i></button>
+        </div>
+        <div class="p-6">
+            <form id="expenseForm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="form-date" class="block text-sm font-medium text-dark-gray mb-1">Date</label>
+                        <input id="form-date" type="date" name="date" class="w-full bg-bg-dark text-light-gray border border-indigo-900/50 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition" required>
+                    </div>
+                    <div>
+                        <label for="form-amount" class="block text-sm font-medium text-dark-gray mb-1">Amount</label>
+                        <div class="relative"><span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span><input id="form-amount" type="number" name="amount" placeholder="0.00" class="w-full bg-bg-dark text-light-gray border border-indigo-900/50 rounded-lg pl-7 pr-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition" required></div>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <label for="form-category" class="block text-sm font-medium text-dark-gray mb-1">Category</label>
+                    <select id="form-category" name="category" class="w-full bg-bg-dark text-light-gray border border-indigo-900/50 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"><option>Travel</option><option>Meals & Entertainment</option><option>Software</option><option>Office Supplies</option></select>
+                </div>
+                <div class="mt-4">
+                    <label for="form-description" class="block text-sm font-medium text-dark-gray mb-1">Description</label>
+                    <textarea id="form-description" name="description" rows="3" placeholder="Client meeting lunch..." class="w-full bg-bg-dark text-light-gray border border-indigo-900/50 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition" required></textarea>
+                </div>
+                <div class="form-error mt-2" id="expense-form-error"></div>
+            </form>
+        </div>
+        <div class="flex items-center justify-end p-5 border-t border-indigo-900/50 space-x-3">
+            <button class="close-modal-btn bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-5 rounded-lg transition">Cancel</button>
+            <button id="submitExpenseBtn" class="bg-gradient-to-b from-primary to-secondary text-white font-semibold py-2 px-5 rounded-lg shadow-[0_4px_15px_-3px_rgba(79,70,229,0.5)] hover:shadow-[0_7px_20px_-3px_rgba(79,70,229,0.6)] hover:from-accent hover:to-primary hover:-translate-y-px transition-all duration-200">Submit</button>
+        </div>
+    </template>
+    
+    <template id="user-form-modal">
+        <div class="flex items-center justify-between p-5 border-b border-indigo-900/50">
+            <h3 id="user-form-title" class="text-2xl font-bold text-white"></h3>
+            <button class="close-modal-btn text-gray-500 hover:text-white transition-colors duration-200"><i class="fas fa-times text-2xl"></i></button>
+        </div>
+        <div class="p-6">
+            <form id="user-form">
+                <div class="mb-4">
+                    <label for="user-name" class="block text-sm font-medium text-dark-gray mb-1">Full Name</label>
+                    <input type="text" id="user-name" class="w-full px-4 py-2 bg-bg-dark border border-indigo-900/50 rounded-lg focus:ring-primary focus:border-primary transition" required>
+                </div>
+                <div class="mb-4">
+                    <label for="user-email" class="block text-sm font-medium text-dark-gray mb-1">Email Address</label>
+                    <input type="email" id="user-email" class="w-full px-4 py-2 bg-bg-dark border border-indigo-900/50 rounded-lg focus:ring-primary focus:border-primary transition" required>
+                </div>
+                 <div class="mb-4">
+                    <label for="user-password" class="block text-sm font-medium text-dark-gray mb-1">Password</label>
+                    <input type="password" id="user-password" class="w-full px-4 py-2 bg-bg-dark border border-indigo-900/50 rounded-lg focus:ring-primary focus:border-primary transition" required>
+                </div>
+                <div class="mb-4">
+                    <label for="user-role" class="block text-sm font-medium text-dark-gray mb-1">Role</label>
+                    <select id="user-role" class="w-full px-4 py-2 bg-bg-dark border border-indigo-900/50 rounded-lg focus:ring-primary focus:border-primary transition" required><option value="employee">Employee</option><option value="manager">Manager</option><option value="admin">Admin</option></select>
+                </div>
+                <div class="form-error" id="user-form-error"></div>
+            </form>
+        </div>
+        <div class="flex items-center justify-end p-5 border-t border-indigo-900/50 space-x-3">
+            <button class="close-modal-btn bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-5 rounded-lg transition">Cancel</button>
+            <button id="user-form-submit-btn" class="bg-gradient-to-b from-primary to-secondary text-white font-semibold py-2 px-5 rounded-lg shadow-[0_4px_15px_-3px_rgba(79,70,229,0.5)] hover:shadow-[0_7px_20px_-3px_rgba(79,70,229,0.6)] hover:from-accent hover:to-primary hover:-translate-y-px transition-all duration-200"></button>
+        </div>
+    </template>
+    
+    <template id="confirm-modal">
+        <div class="flex items-center justify-between p-5 border-b border-indigo-900/50">
+            <h3 id="confirm-title" class="text-2xl font-bold text-white">Confirm Action</h3>
+            <button class="close-modal-btn text-gray-500 hover:text-white transition-colors duration-200"><i class="fas fa-times text-2xl"></i></button>
+        </div>
+        <div class="p-6"><p id="confirm-message">Are you sure you want to proceed?</p></div>
+        <div class="flex items-center justify-end p-5 border-t border-indigo-900/50 space-x-3">
+            <button class="close-modal-btn bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-5 rounded-lg transition">Cancel</button>
+            <button id="confirm-btn" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-5 rounded-lg transition">Confirm</button>
+        </div>
+    </template>
+
+    <template id="ai-help-modal">
+        <div class="flex items-center justify-between p-5 border-b border-indigo-900/50">
+            <h3 class="text-2xl font-bold text-white flex items-center gap-3"><i class="fas fa-robot text-accent"></i> AI Help Assistant</h3>
+            <button class="close-modal-btn text-gray-500 hover:text-white transition-colors duration-200"><i class="fas fa-times text-2xl"></i></button>
+        </div>
+        <div class="p-6 h-[60vh] flex flex-col">
+            <div id="chat-window" class="flex-1 overflow-y-auto space-y-4 pr-2">
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0"><i class="fas fa-robot"></i></div>
+                    <div class="bg-bg-dark p-3 rounded-lg rounded-tl-none"><p>Hello! How can I help you today?</p></div>
+                </div>
+            </div>
+            <div id="suggested-questions" class="py-4 flex flex-wrap gap-2">
+                <button class="help-query-btn text-sm bg-slate-600/50 hover:bg-slate-600 px-3 py-1 rounded-full transition">How to submit an expense?</button>
+                <button class="help-query-btn text-sm bg-slate-600/50 hover:bg-slate-600 px-3 py-1 rounded-full transition">What's the approval flow?</button>
+            </div>
+            <div class="mt-2 border-t border-indigo-900/50 pt-4">
+                <form id="help-form" class="flex items-center gap-3">
+                    <input type="text" id="help-input" class="w-full bg-bg-dark text-light-gray border border-indigo-900/50 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition" placeholder="Type your question...">
+                    <button type="submit" class="bg-primary text-white font-bold rounded-lg p-2 h-11 w-11 flex items-center justify-center hover:bg-secondary transition"><i class="fas fa-paper-plane"></i></button>
+                </form>
+            </div>
+        </div>
+    </template>
+    
+    <template id="history-page">
+        <div class="space-y-6">
+            <div class="scroll-animate flex flex-wrap gap-4 justify-between items-center">
+                <h1 class="text-3xl font-bold text-white">Processed Expenses History</h1>
+            </div>
+            <div class="scroll-animate bg-bg-light p-6 rounded-xl soft-shadow">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b border-indigo-900/50">
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase">Submitter</th>
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase">Date</th>
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase">Description</th>
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase text-right">Amount</th>
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase text-center">Status</th>
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+
+    <template id="pending-approvals-page">
+        <div id="pending-approvals-container" class="space-y-6">
+            <h1 class="text-3xl font-bold text-white scroll-animate">Pending Approvals</h1>
+        </div>
+    </template>
+    
+    <template id="user-management-page">
+        <div class="space-y-6">
+            <div class="scroll-animate flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-white">User Management</h1>
+                <button class="add-user-btn bg-gradient-to-b from-primary to-secondary text-white font-bold py-2 px-4 rounded-lg shadow-[0_4px_15px_-3px_rgba(79,70,229,0.5)] hover:shadow-[0_7px_20px_-3px_rgba(79,70,229,0.6)] hover:from-accent hover:to-primary hover:-translate-y-px transition-all duration-200"><i class="fas fa-user-plus"></i><span>Add User</span></button>
+            </div>
+            <div class="scroll-animate bg-bg-light p-6 rounded-xl soft-shadow">
+                 <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b border-indigo-900/50">
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase">Name</th>
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase">Email</th>
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase">Role</th>
+                            <th class="p-4 font-semibold text-sm text-dark-gray uppercase text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="user-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+    
+    <template id="approval-rules-page">
+        <div class="space-y-6">
+            <div class="scroll-animate flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-white">Approval Flow Rules</h1>
+                <button class="bg-gradient-to-b from-primary to-secondary text-white font-bold py-2 px-4 rounded-lg shadow-[0_4px_15px_-3px_rgba(79,70,229,0.5)] hover:shadow-[0_7px_20px_-3px_rgba(79,70,229,0.6)] hover:from-accent hover:to-primary hover:-translate-y-px transition-all duration-200"><i class="fas fa-plus"></i><span>New Rule</span></button>
+            </div>
+            <div class="scroll-animate bg-bg-light p-6 rounded-xl soft-shadow">
+                <h2 class="text-xl font-bold text-white mb-4">Rule Builder</h2>
+                <div class="border border-indigo-900/50 rounded-lg p-4 space-y-4 bg-bg-dark">
+                     <div>
+                        <label class="block font-medium mb-1">Rule Type</label>
+                        <select class="w-full p-2 border rounded-md bg-bg-dark border-indigo-900/50 text-light-gray"><option>Percentage Rule</option><option>Specific Approver Rule</option><option>Hybrid Rule</option></select>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1">Condition</label>
+                        <div class="flex items-center space-x-2"><p>If</p> <input type="number" value="60" class="w-20 p-2 border rounded-md text-center bg-bg-dark border-indigo-900/50 text-light-gray"> <p>% of approvers approve, then auto-approve.</p></div>
+                    </div>
+                </div>
+            </div>
+            <div class="scroll-animate bg-bg-light p-6 rounded-xl soft-shadow">
+                <h2 class="text-xl font-bold text-white mb-4">Approval Flow Visualizer (Drag & Drop)</h2>
+                <div class="grid grid-cols-5 gap-4 items-center text-center">
+                    <div class="draggable bg-indigo-900 text-indigo-200 p-4 rounded-lg soft-shadow" draggable="true">Employee Submits</div>
+                    <div class="text-slate-500"><i class="fas fa-arrow-right"></i></div>
+                    <div class="dropzone p-8 rounded-lg"><div class="draggable bg-secondary text-white p-4 rounded-lg soft-shadow" draggable="true">Manager Approval</div></div>
+                    <div class="text-slate-500"><i class="fas fa-arrow-right"></i></div>
+                     <div class="dropzone p-8 rounded-lg"><div class="draggable bg-primary text-white p-4 rounded-lg soft-shadow" draggable="true">Finance Approval</div></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- App State & Elements ---
+            const pages = { loginPage: document.getElementById('loginPage'), appContainer: document.getElementById('appContainer') };
+            const modalContainer = document.getElementById('modalContainer');
+            const modalContentEl = modalContainer.querySelector('.modal-content');
+            const loginForm = document.getElementById('loginForm');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const sidebarNav = document.getElementById('sidebarNav');
+            const mainContent = document.getElementById('mainContent');
+            const helpFab = document.getElementById('help-fab');
+            const showSignupModalBtn = document.getElementById('show-signup-modal');
+            let currentUser = null, users = [], expenses = [];
+            const templates = {
+                'employee-nav': document.getElementById('employee-nav').innerHTML, 'manager-nav': document.getElementById('manager-nav').innerHTML,
+                'history-nav': document.getElementById('history-nav').innerHTML, 'admin-nav': document.getElementById('admin-nav').innerHTML,
+                'my-expenses-page': document.getElementById('my-expenses-page').content, 'history-page': document.getElementById('history-page').content,
+                'expense-submission-form': document.getElementById('expense-submission-form').innerHTML, 'user-form-modal': document.getElementById('user-form-modal').innerHTML,
+                'confirm-modal': document.getElementById('confirm-modal').innerHTML, 'expense-history-modal': document.getElementById('expense-history-modal').innerHTML,
+                'ocr-scan-modal': document.getElementById('ocr-scan-modal').innerHTML, 'ai-help-modal': document.getElementById('ai-help-modal').innerHTML,
+                'pending-approvals-page': document.getElementById('pending-approvals-page').content, 'user-management-page': document.getElementById('user-management-page').content,
+                'approval-rules-page': document.getElementById('approval-rules-page').content
+            };
+            
+            // --- Initialization & Data ---
+            const initializeApp = () => {
+                users = JSON.parse(localStorage.getItem('clarityExpenseUsers')) || [
+                    { id: 1, name: 'Admin User', email: 'admin@clarity.com', password: 'password', role: 'admin' }, { id: 2, name: 'Manager User', email: 'manager@clarity.com', password: 'password', role: 'manager' },
+                    { id: 3, name: 'Employee User', email: 'employee@clarity.com', password: 'password', role: 'employee' }
+                ];
+                expenses = JSON.parse(localStorage.getItem('clarityExpenseData')) || [
+                    { id: 1, sEmail: 'employee@clarity.com', sName: 'Employee User', date: '2025-10-03', desc: 'Client Dinner', amt: 124.50, cat: 'Meals', status: 'approved', hist: [{ a: 'Sub', by: 'Employee User', d: 'Oct 3' }, { a: 'App', by: 'Manager User', d: 'Oct 4' }] },
+                    { id: 2, sEmail: 'employee@clarity.com', sName: 'Employee User', date: '2025-10-01', desc: 'Figma Sub', amt: 15.00, cat: 'Software', status: 'pending', hist: [{ a: 'Sub', by: 'Employee User', d: 'Oct 1' }] },
+                    { id: 3, sEmail: 'employee@clarity.com', sName: 'Employee User', date: '2025-09-28', desc: 'Conference Travel', amt: 450.00, cat: 'Travel', status: 'rejected', hist: [{ a: 'Sub', by: 'Employee User', d: 'Sep 28' }, { a: 'Rej', by: 'Manager User', d: 'Sep 29' }] },
+                ];
+                saveUsers(); saveExpenses();
+            };
+            const saveUsers = () => localStorage.setItem('clarityExpenseUsers', JSON.stringify(users));
+            const saveExpenses = () => localStorage.setItem('clarityExpenseData', JSON.stringify(expenses));
+            
+            // --- Auth & User Management ---
+            const handleLogin = e => {
+                e.preventDefault();
+                const email = document.getElementById('login-email').value, password = document.getElementById('login-password').value;
+                const foundUser = users.find(u => u.email === email && u.password === password);
+                if (foundUser) {
+                    currentUser = foundUser;
+                    document.getElementById('login-error').textContent = '';
+                    loginForm.reset();
+                    showPage('appContainer');
+                    document.getElementById('userRoleDisplay').textContent = currentUser.role;
+                    helpFab.classList.remove('hidden'); helpFab.classList.add('flex');
+                    updateUIForRole(currentUser.role);
+                } else { document.getElementById('login-error').textContent = 'Invalid email or password.'; }
+            };
+            const handleLogout = () => { currentUser = null; showPage('loginPage'); helpFab.classList.add('hidden'); helpFab.classList.remove('flex'); };
+            const handleUserFormSubmit = (isSignUp, userId = null) => {
+                const name = document.getElementById('user-name').value.trim(), email = document.getElementById('user-email').value.trim(), password = document.getElementById('user-password').value.trim(), role = document.getElementById('user-role').value;
+                const errorEl = document.getElementById('user-form-error');
+                if (userId) {
+                    const user = users.find(u => u.id === userId);
+                    if (user) { user.role = role; saveUsers(); closeModal(); renderUserTable(); }
+                } else {
+                    if (!name || !email || !password) { errorEl.textContent = 'All fields are required.'; return; }
+                    if (users.some(u => u.email === email)) { errorEl.textContent = 'Email already exists.'; return; }
+                    users.push({ id: Date.now(), name, email, password, role });
+                    saveUsers(); closeModal(); if (!isSignUp) renderUserTable();
+                }
+            };
+            const removeUser = userId => { users = users.filter(u => u.id !== userId); saveUsers(); closeModal(); renderUserTable(); };
+            
+            // --- Expense Management ---
+            const handleExpenseSubmit = () => {
+                const date = document.getElementById('form-date').value, amount = document.getElementById('form-amount').value, desc = document.getElementById('form-description').value.trim(), cat = document.getElementById('form-category').value;
+                if (!date || !amount || !desc) { document.getElementById('expense-form-error').textContent = 'Please fill out all fields.'; return; }
+                expenses.unshift({ id: Date.now(), sEmail: currentUser.email, sName: currentUser.name, date, desc, amt: parseFloat(amount), cat, status: 'pending', hist: [{ a: 'Sub', by: currentUser.name, d: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }] });
+                saveExpenses(); closeModal(); navigateTo('my-expenses');
+            };
+            const handleApprovalAction = (expenseId, action) => {
+                const expense = expenses.find(e => e.id === expenseId);
+                if (expense) {
+                    expense.status = action;
+                    expense.hist.push({ a: action.charAt(0).toUpperCase() + action.slice(1, 3), by: currentUser.name, d: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) });
+                    saveExpenses(); navigateTo('pending-approvals');
+                }
+            };
+
+            // --- UI Rendering & Modals ---
+            const showPage = pageId => { Object.values(pages).forEach(p => p.classList.remove('active')); pages[pageId].classList.add('active'); };
+            const openModal = html => {
+                modalContentEl.innerHTML = html;
+                modalContainer.classList.remove('hidden');
+                setTimeout(() => { modalContainer.classList.remove('opacity-0'); modalContentEl.classList.remove('scale-95', 'opacity-0'); }, 10);
+            };
+            const closeModal = () => {
+                modalContentEl.classList.add('scale-95', 'opacity-0');
+                modalContainer.classList.add('opacity-0');
+                setTimeout(() => { modalContainer.classList.add('hidden'); modalContentEl.innerHTML = ''; }, 300);
+            };
+            const openUserFormModal = (isSignUp = false, userId = null) => {
+                openModal(templates['user-form-modal']);
+                const titleEl = document.getElementById('user-form-title'), submitBtn = document.getElementById('user-form-submit-btn');
+                const nameIn = document.getElementById('user-name'), emailIn = document.getElementById('user-email'), passIn = document.getElementById('user-password'), roleIn = document.getElementById('user-role');
+                if (userId) {
+                    const user = users.find(u => u.id === userId);
+                    titleEl.textContent = 'Edit User Role'; submitBtn.textContent = 'Save Changes';
+                    nameIn.value = user.name; nameIn.disabled = true; emailIn.value = user.email; emailIn.disabled = true;
+                    passIn.parentElement.style.display = 'none'; roleIn.value = user.role;
+                } else { titleEl.textContent = isSignUp ? 'Create Account' : 'Add New User'; submitBtn.textContent = isSignUp ? 'Sign Up' : 'Add User'; }
+                document.getElementById('user-form').onsubmit = e => { e.preventDefault(); handleUserFormSubmit(isSignUp, userId); };
+                submitBtn.onclick = () => handleUserFormSubmit(isSignUp, userId);
+            };
+            const openConfirmRemoveModal = userId => {
+                const user = users.find(u => u.id === userId);
+                if (!user) return; openModal(templates['confirm-modal']);
+                document.getElementById('confirm-title').textContent = 'Remove User';
+                document.getElementById('confirm-message').textContent = `Are you sure you want to remove ${user.name}? This action cannot be undone.`;
+                document.getElementById('confirm-btn').onclick = () => removeUser(userId);
+            };
+            const openHistoryModal = expenseId => {
+                const expense = expenses.find(e => e.id === expenseId); if (!expense) return; openModal(templates['expense-history-modal']);
+                document.getElementById('history-description').textContent = `Desc: ${expense.desc}`;
+                const timeline = document.getElementById('history-timeline'); timeline.innerHTML = '';
+                const iconMap = { 'Sub': 'fa-receipt', 'App': 'fa-check', 'Rej': 'fa-times' };
+                const colorMap = { 'Sub': 'bg-slate-700 text-slate-400', 'App': 'bg-green-900 text-green-400', 'Rej': 'bg-red-900 text-red-400' };
+                const textMap = { 'Sub': 'Submitted', 'App': 'Approved', 'Rej': 'Rejected' };
+                expense.hist.forEach(item => {
+                    const li = document.createElement('li'); li.className = 'mb-10 ml-6';
+                    li.innerHTML = `<span class="absolute flex items-center justify-center w-6 h-6 ${colorMap[item.a]} rounded-full -left-3 ring-8 ring-bg-light"><i class="fas ${iconMap[item.a]}"></i></span><h3 class="font-semibold text-white">${textMap[item.a]} by ${item.by}</h3><time class="text-sm text-gray-500">${item.d}</time>`;
+                    timeline.appendChild(li);
+                });
+            };
+
+            const updateUIForRole = role => {
+                let nav = '';
+                if (role === 'employee') {
+                    nav = templates['employee-nav'];
+                } else if (role === 'manager') {
+                    nav = templates['employee-nav'] + templates['manager-nav'] + templates['history-nav'];
+                } else if (role === 'admin') {
+                    // Admin does not get 'My Expenses'
+                    nav = templates['manager-nav'] + templates['history-nav'] + templates['admin-nav'];
+                }
+                sidebarNav.innerHTML = nav;
+                let defaultPage = { employee: 'my-expenses', manager: 'pending-approvals', admin: 'user-management' };
+                navigateTo(defaultPage[role]);
+            };
+
+            const navigateTo = pageName => {
+                mainContent.innerHTML = ''; mainContent.appendChild(templates[`${pageName}-page`].cloneNode(true));
+                document.querySelectorAll('.nav-link').forEach(l => {
+                    l.classList.toggle('bg-indigo-900/40', l.getAttribute('href') === `#${pageName}`);
+                    l.classList.toggle('text-primary', l.getAttribute('href') === `#${pageName}`);
+                });
+                const renderMap = { 'my-expenses': renderMyExpensesPage, 'pending-approvals': renderPendingApprovalsPage, 'history': renderHistoryPage, 'user-management': renderUserTable, 'approval-rules': setupDragAndDrop };
+                if (renderMap[pageName]) renderMap[pageName]();
+                setupScrollAnimations();
+            };
+            
+            // --- Page Renderers ---
+            const renderMyExpensesPage = () => {
+                const tableBody = document.getElementById('my-expenses-table-body');
+                const userExpenses = expenses.filter(e => e.sEmail === currentUser.email);
+                tableBody.innerHTML = userExpenses.length === 0 ? `<tr><td colspan="5" class="text-center p-8 text-dark-gray">No expenses submitted.</td></tr>` : userExpenses.map(e => `
+                    <tr class="border-b border-indigo-900/50 hover:bg-indigo-900/20">
+                        <td class="p-4">${new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}</td>
+                        <td class="p-4 font-medium">${e.desc}</td><td class="p-4 text-right font-medium text-accent">$${e.amt.toFixed(2)}</td>
+                        <td class="p-4 text-center"><span class="status-pill status-${e.status}">${e.status}</span></td>
+                        <td class="p-4 text-center"><button class="view-history-btn text-dark-gray hover:text-primary" data-expense-id="${e.id}"><i class="fas fa-history"></i></button></td>
+                    </tr>`).join('');
+            };
+            const renderPendingApprovalsPage = () => {
+                const container = document.getElementById('pending-approvals-container');
+                const pending = expenses.filter(e => e.status === 'pending' && e.sEmail !== currentUser.email);
+                pending.forEach((expense, i) => {
+                    const item = document.createElement('div');
+                    item.className = 'scroll-animate approval-item bg-bg-light p-6 rounded-xl soft-shadow';
+                    item.style.transitionDelay = `${i * 100}ms`;
+                    item.innerHTML = `
+                        <div class="md:flex justify-between items-start"><p class="font-bold text-lg text-white">${expense.sName} - $${expense.amt.toFixed(2)}</p><div class="flex items-center space-x-3 mt-4 md:mt-0"><button class="reject-btn bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg" data-expense-id="${expense.id}">Reject</button><button class="approve-btn bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg" data-expense-id="${expense.id}">Approve</button></div></div>
+                        <div class="mt-4 pt-4 border-t border-indigo-900/50"><p class="font-semibold text-sm text-dark-gray">${expense.desc}</p></div>`;
+                    container.appendChild(item);
+                });
+                if (pending.length === 0) container.insertAdjacentHTML('beforeend', `<div class="scroll-animate bg-bg-light p-8 rounded-xl soft-shadow text-center text-dark-gray">No pending approvals.</div>`);
+            };
+            const renderHistoryPage = () => {
+                const tableBody = document.getElementById('history-table-body');
+                const processed = expenses.filter(e => e.status !== 'pending');
+                tableBody.innerHTML = processed.length === 0 ? `<tr><td colspan="6" class="text-center p-8 text-dark-gray">No history.</td></tr>` : processed.map(e => `
+                    <tr class="border-b border-indigo-900/50 hover:bg-indigo-900/20">
+                        <td class="p-4 font-medium">${e.sName}</td>
+                        <td class="p-4">${new Date(e.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'})}</td>
+                        <td class="p-4">${e.desc}</td>
+                        <td class="p-4 text-right text-accent">$${e.amt.toFixed(2)}</td>
+                        <td class="p-4 text-center"><span class="status-pill status-${e.status}">${e.status}</span></td>
+                        <td class="p-4 text-center"><button class="view-history-btn text-dark-gray hover:text-primary" data-expense-id="${e.id}"><i class="fas fa-history"></i></button></td>
+                    </tr>`).join('');
+            };
+            const renderUserTable = () => {
+                const tableBody = document.getElementById('user-table-body');
+                tableBody.innerHTML = users.map(user => {
+                    const isCurrentUser = user.id === currentUser.id;
+                    return `
+                    <tr class="border-b border-indigo-900/50 hover:bg-indigo-900/20">
+                        <td class="p-4 font-medium">${user.name} ${isCurrentUser ? '(You)' : ''}</td><td class="p-4">${user.email}</td>
+                        <td class="p-4 capitalize font-semibold ${user.role==='admin'?'text-primary':user.role==='manager'?'text-accent':'text-gray-400'}">${user.role}</td>
+                        <td class="p-4 text-center space-x-4">
+                            <button class="edit-user-btn text-blue-400 hover:text-blue-300" data-user-id="${user.id}" ${isCurrentUser?'disabled':''}> <i class="fas fa-edit"></i> </button>
+                            <button class="remove-user-btn text-red-500 hover:text-red-400" data-user-id="${user.id}" ${isCurrentUser?'disabled':''}> <i class="fas fa-trash"></i> </button>
+                        </td>
+                    </tr>`}).join('');
+            };
+
+            // --- Features & Event Listeners ---
+            const handleFileUpload = (event) => {
+                if (!event.target.files || event.target.files.length === 0) return;
+                document.getElementById('ocr-upload-view').style.display = 'none';
+                document.getElementById('ocr-scanning-view').classList.remove('hidden');
+                
+                // Simulate OCR process
+                setTimeout(() => {
+                    const fakeData = {
+                        date: new Date().toISOString().split('T')[0],
+                        amount: (Math.random() * 200 + 10).toFixed(2),
+                        description: `Scanned: ${event.target.files[0].name.split('.')[0]}`
+                    };
+
+                    closeModal();
+                    // Wait for the close animation to finish before opening the next modal
+                    setTimeout(() => {
+                        openModal(templates['expense-submission-form']);
+                        document.getElementById('form-date').value = fakeData.date;
+                        document.getElementById('form-amount').value = fakeData.amount;
+                        document.getElementById('form-description').value = fakeData.description;
+                        document.getElementById('submitExpenseBtn').onclick = handleExpenseSubmit;
+                    }, 300);
+                }, 3000); // 3-second fake scan time
+            };
+            
+            const openOcrModal = () => {
+                openModal(templates['ocr-scan-modal']);
+                const fileInput = document.getElementById('receiptUpload');
+                fileInput.addEventListener('change', handleFileUpload);
+            };
+
+            const setupScrollAnimations = () => {
+                const observer = new IntersectionObserver(entries => {
+                    entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('is-visible'); });
+                }, { threshold: 0.1 });
+                document.querySelectorAll('.scroll-animate').forEach(el => observer.observe(el));
+            };
+            loginForm.addEventListener('submit', handleLogin);
+            logoutBtn.addEventListener('click', handleLogout);
+            showSignupModalBtn.addEventListener('click', e => { e.preventDefault(); openUserFormModal(true); });
+            sidebarNav.addEventListener('click', e => { const link = e.target.closest('a'); if (link) { e.preventDefault(); navigateTo(link.getAttribute('href').substring(1)); } });
+            mainContent.addEventListener('click', e => {
+                const targetMap = {'.submit-expense-btn': () => { openModal(templates['expense-submission-form']); document.getElementById('submitExpenseBtn').onclick = handleExpenseSubmit; },
+                    '.scan-receipt-btn': openOcrModal, '.view-history-btn': el => openHistoryModal(parseInt(el.dataset.expenseId)),
+                    '.add-user-btn': () => openUserFormModal(false), '.edit-user-btn': el => openUserFormModal(false, parseInt(el.dataset.userId)),
+                    '.remove-user-btn': el => openConfirmRemoveModal(parseInt(el.dataset.userId)), '.approve-btn': el => handleApprovalAction(parseInt(el.dataset.expenseId), 'approved'),
+                    '.reject-btn': el => handleApprovalAction(parseInt(el.dataset.expenseId), 'rejected')
+                };
+                for (const selector in targetMap) { const el = e.target.closest(selector); if (el) { targetMap[selector](el); return; } }
+            });
+            modalContainer.addEventListener('click', e => { if (e.target === modalContainer || e.target.closest('.close-modal-btn')) closeModal(); });
+            const setupDragAndDrop = () => {};
+            initializeApp();
+        });
+    </script>
+</body>
+</html>
