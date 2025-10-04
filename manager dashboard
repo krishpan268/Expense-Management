@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ExpenseFlow — Dashboard</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --accent: #2563eb;
+      --muted: #6b7280;
+      --dark: #0f172a;
+      --light-border: #e5e7eb;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: Inter, sans-serif;
+      background: var(--bg);
+      color: var(--dark);
+      display: flex;
+      min-height: 100vh;
+    }
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      background: var(--card);
+      border-right: 1px solid var(--light-border);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar h2 {
+      margin: 0 0 24px;
+      font-size: 22px;
+      color: var(--accent);
+    }
+    .sidebar nav a {
+      text-decoration: none;
+      color: var(--dark);
+      padding: 10px 0;
+      display: block;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .sidebar nav a:hover,
+    .sidebar nav a.active {
+      background: #eef2ff;
+      color: var(--accent);
+    }
+    /* Main area */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .header {
+      padding: 16px 24px;
+      background: var(--card);
+      border-bottom: 1px solid var(--light-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header .user {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header .user img {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+    }
+    .content {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: var(--card);
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+    .table-wrapper {
+      background: var(--card);
+      border-radius: 10px;
+      overflow: auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--light-border);
+    }
+    th {
+      background: #f9fafb;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 13px;
+    }
+    @media (max-width: 768px) {
+      .sidebar {
+        display: none;
+      }
+      body {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <h2>ExpenseFlow</h2>
+    <nav>
+      <a href="#" class="active">Dashboard</a>
+      <a href="#">Expenses</a>
+      <a href="#">Reports</a>
+      <a href="#">Settings</a>
+      <a href="#">Logout</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="header">
+      <div class="title">Dashboard</div>
+      <div class="user">
+        <span>Hi, John</span>
+        <img src="https://via.placeholder.com/32" alt="User avatar" />
+      </div>
+    </header>
+
+    <section class="content">
+      <div class="cards">
+        <div class="card">
+          <h3>Total Spending</h3>
+          <p>$12,450</p>
+        </div>
+        <div class="card">
+          <h3>Pending Approvals</h3>
+          <p>7 requests</p>
+        </div>
+        <div class="card">
+          <h3>Approved This Month</h3>
+          <p>$8,200</p>
+        </div>
+        <div class="card">
+          <h3>Budget Remaining</h3>
+          <p>$5,300</p>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Employee</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="expenseTableBody">
+            <tr>
+              <td>2025-10-01</td>
+              <td>Alice</td>
+              <td>Travel</td>
+              <td>$320</td>
+              <td>Approved</td>
+            </tr>
+            <tr>
+              <td>2025-10-02</td>
+              <td>Bob</td>
+              <td>Meals</td>
+              <td>$45</td>
+              <td>Pending</td>
+            </tr>
+            <tr>
+              <td>2025-10-03</td>
+              <td>Charlie</td>
+              <td>Office Supplies</td>
+              <td>$112</td>
+              <td>Rejected</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Example: fetch and populate dynamic data
+    async function fetchDashboardData() {
+      try {
+        // Replace with your API endpoint
+        const resp = await fetch('/api/dashboard');
+        if (!resp.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await resp.json();
+        populateCards(data.cards);
+        populateTable(data.recentExpenses);
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err);
+      }
+    }
+
+    function populateCards(cardsData) {
+      const cardsContainer = document.querySelector('.cards');
+      cardsContainer.innerHTML = ''; // clear existing
+      cardsData.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `<h3>${item.title}</h3><p>${item.value}</p>`;
+        cardsContainer.appendChild(div);
+      });
+    }
+
+    function populateTable(expenses) {
+      const tbody = document.getElementById('expenseTableBody');
+      tbody.innerHTML = '';
+      expenses.forEach(item => {
+        const tr = document.createElement('tr');
+        ['date', 'employee', 'category', 'amount', 'status'].forEach(key => {
+          const td = document.createElement('td');
+          td.innerText = item[key];
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    // On load, fetch data
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchDashboardData();
+    });
+  </script>
+</body>
+</html>
