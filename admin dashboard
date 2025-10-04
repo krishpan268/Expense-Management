@@ -1,0 +1,233 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ExpenseFlow — Dashboard</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --accent: #2563eb;
+      --muted: #6b7280;
+      --dark: #0f172a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, sans-serif;
+      background: var(--bg);
+      color: var(--dark);
+      display: flex;
+      height: 100vh;
+    }
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      background: var(--card);
+      border-right: 1px solid #e5e7eb;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar h2 {
+      margin: 0 0 20px;
+      font-size: 20px;
+      color: var(--accent);
+    }
+    .sidebar a {
+      text-decoration: none;
+      color: var(--dark);
+      padding: 10px 0;
+      display: block;
+      border-radius: 4px;
+    }
+    .sidebar a.active, .sidebar a:hover {
+      background: #eef2ff;
+      color: var(--accent);
+    }
+    /* Main area */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .header {
+      padding: 16px 24px;
+      background: var(--card);
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header .user {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header .user img {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+    }
+    .content {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: var(--card);
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+    .card p {
+      margin: 0;
+      color: var(--muted);
+    }
+    .table-wrapper {
+      background: var(--card);
+      border-radius: 10px;
+      overflow: auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    th {
+      background: #f9fafb;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+    @media (max-width: 768px) {
+      .sidebar {
+        display: none;
+      }
+      body {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <h2>ExpenseFlow</h2>
+    <nav>
+      <a href="#" class="active">Dashboard</a>
+      <a href="#">Expenses</a>
+      <a href="#">Reports</a>
+      <a href="#">Settings</a>
+      <a href="#">Logout</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <header class="header">
+      <div class="title">Dashboard</div>
+      <div class="user">
+        <span>Hi, John</span>
+        <img src="https://via.placeholder.com/32" alt="User avatar" />
+      </div>
+    </header>
+    <section class="content">
+      <div class="cards">
+        <div class="card">
+          <h3>Total Spending</h3>
+          <p>$12,450</p>
+        </div>
+        <div class="card">
+          <h3>Pending Approvals</h3>
+          <p>7 requests</p>
+        </div>
+        <div class="card">
+          <h3>Approved This Month</h3>
+          <p>$8,200</p>
+        </div>
+        <div class="card">
+          <h3>Budget Remaining</h3>
+          <p>$5,300</p>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Employee</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="expenseTableBody">
+            <tr>
+              <td>2025-10-01</td>
+              <td>Alice</td>
+              <td>Travel</td>
+              <td>$320</td>
+              <td>Approved</td>
+            </tr>
+            <tr>
+              <td>2025-10-02</td>
+              <td>Bob</td>
+              <td>Meals</td>
+              <td>$45</td>
+              <td>Pending</td>
+            </tr>
+            <tr>
+              <td>2025-10-03</td>
+              <td>Charlie</td>
+              <td>Office Supplies</td>
+              <td>$112</td>
+              <td>Rejected</td>
+            </tr>
+            <!-- more rows -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Example: dynamically populate table (if you fetch from backend)
+    const sampleData = [
+      { date: '2025-10-04', employee: 'David', category: 'Lodging', amount: '$450', status: 'Approved' },
+      { date: '2025-10-05', employee: 'Eva', category: 'Meals', amount: '$60', status: 'Pending' },
+    ];
+
+    function loadTable() {
+      const tbody = document.getElementById('expenseTableBody');
+      sampleData.forEach(item => {
+        const tr = document.createElement('tr');
+        [item.date, item.employee, item.category, item.amount, item.status].forEach(text => {
+          const td = document.createElement('td');
+          td.innerText = text;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      })
+    }
+
+    loadTable();
+  </script>
+</body>
+</html>
