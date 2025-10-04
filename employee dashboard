@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — ExpenseFlow</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --accent: #2563eb;
+      --muted: #6b7280;
+      --dark: #0f172a;
+      --border: #e5e7eb;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, sans-serif;
+      background: var(--bg);
+      color: var(--dark);
+      display: flex;
+      min-height: 100vh;
+    }
+    /* Sidebar */
+    .sidebar {
+      width: 220px;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar h2 {
+      color: var(--accent);
+      margin-bottom: 30px;
+    }
+    .sidebar nav a {
+      text-decoration: none;
+      color: var(--dark);
+      padding: 10px 0;
+      display: block;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .sidebar nav a:hover,
+    .sidebar nav a.active {
+      background: #eef2ff;
+      color: var(--accent);
+    }
+    /* Main content */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header .user {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header .user img {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+    }
+    .content {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat
